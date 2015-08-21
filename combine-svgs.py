@@ -1,0 +1,65 @@
+#!/usr/bin/python
+
+import os
+import os.path
+import sys
+import subprocess
+import xml.etree.ElementTree as ET
+
+SVG_NAMESPACE =  "http://www.w3.org/2000/svg"
+ET.register_namespace('', SVG_NAMESPACE)
+
+def process_file(f):
+    print "Processing file {}".format(f)
+    status = subprocess.call(['svgo', f])
+    if status != 0:
+        print "Processing file {} failed".format(f)
+        return False
+
+    tree = ET.parse(f)
+    for elem in tree.iter():
+        process_element(elem, f)
+
+    # tree.write("o-"+f, encoding="UTF-8", xml_declaration=False)
+    return tree.getroot()
+
+def process_element(elem, f):
+    for a in ["xmlns"]:
+        if a in elem.attrib:
+            del elem.attrib[a]
+    if elem.tag.endswith("svg"):
+        elem.tag = "symbol"
+        elem.attrib["id"] = f.split(".")[0]
+
+def indent(elem, level=0):
+  i = "\n" + level*"  "
+  if len(elem):
+    if not elem.text or not elem.text.strip():
+      elem.text = i + "  "
+    if not elem.tail or not elem.tail.strip():
+      elem.tail = i
+    for elem in elem:
+      indent(elem, level+1)
+    if not elem.tail or not elem.tail.strip():
+      elem.tail = i
+  else:
+    if level and (not elem.tail or not elem.tail.strip()):
+      elem.tail = i
+
+def main(source_dir, target_dir):
+    combined = ET.ElementTree(file="svgs.template")
+    defs = combined.find("ns:defs", {'ns': SVG_NAMESPACE})
+
+    start_dir = os.getcwd()
+    os.chdir(source_dir)
+    for f in os.listdir('.'):
+        if os.path.isfile(f) and f.endswith('.svg'):
+            tree = process_file(f)
+            defs.append(tree)
+    os.chdir(start_dir)
+    os.chdir(target_dir)
+
+    indent(combined.getroot())
+    combined.write('icons.svg')
+
+main(sys.argv[1], sys.argv[2])
