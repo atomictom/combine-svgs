@@ -11,17 +11,20 @@ ET.register_namespace('', SVG_NAMESPACE)
 
 def process_file(f):
     print "Processing file {}".format(f)
-    status = subprocess.call(['svgo', f])
-    if status != 0:
-        print "Processing file {} failed".format(f)
+
+    try:
+        output = subprocess.check_output(['svgo', f, "--output=-"])
+    except CalledProcessError as e:
+        print "svgo failed with code {}".format(e.returncode)
+        print "output before failure:\n{}".format(e.output)
         return False
 
-    tree = ET.parse(f)
+    tree = ET.fromstring(output)
     for elem in tree.iter():
         process_element(elem, f)
 
     # tree.write("o-"+f, encoding="UTF-8", xml_declaration=False)
-    return tree.getroot()
+    return tree
 
 def process_element(elem, f):
     for a in ["xmlns"]:
